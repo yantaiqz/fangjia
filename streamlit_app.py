@@ -40,7 +40,8 @@ st.set_page_config(
 @st.cache_data
 def get_gdp_data():
     # 读取模拟数据
-    raw_df = pd.read_csv(get_dummy_csv_data(), delimiter=',')
+    # raw_df = pd.read_csv(get_dummy_csv_data(), delimiter=',')
+    raw_df = pd.read_csv('fangchan_full_data.csv')
 
     # 现在的标识符包含：城市、城区、类型
     id_vars = ['城市', '城区', '类型']
