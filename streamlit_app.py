@@ -44,7 +44,7 @@ def get_gdp_data():
     # raw_df = pd.read_csv(get_dummy_csv_data(), delimiter=',')    
     # raw_df = pd.read_csv('fangchan_full_data.csv')
 
-    DATA_FILENAME = Path(__file__).parent/'data/fangchan_data.csv'
+    DATA_FILENAME = Path(__file__).parent/'data/fangchan_full_data.csv'
     raw_df = pd.read_csv(DATA_FILENAME, delimiter=',')
 
     # 现在的标识符包含：城市、城区、类型
