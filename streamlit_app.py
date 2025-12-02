@@ -120,4 +120,79 @@ filtered_df = gdp_df[
     (gdp_df['城市'] == selected_city) &
     (gdp_df['城区'].isin(selected_districts)) &
     (gdp_df['类型'] == metric_type) &  # 增加类型过滤
-    (gdp_
+    (gdp_df['时间'] <= to_year) & 
+    (from_year <= gdp_df['时间'])
+]
+
+if filtered_df.empty:
+    st.info("⚠️ 当前筛选条件下暂无数据，请调整侧边栏选项。")
+    st.stop()
+
+# -----------------------------------------------------------------------------
+# 图表绘制
+# -----------------------------------------------------------------------------
+st.subheader(f'{metric_type}走势图', divider='gray')
+
+base = alt.Chart(filtered_df).encode(
+    x=alt.X('时间', axis=alt.Axis(format='d', title='年份')),
+    y=alt.Y('价格', 
+            scale=alt.Scale(zero=False), 
+            axis=alt.Axis(title=y_axis_title)),
+    color=alt.Color('城区', legend=alt.Legend(title="区域"))
+)
+
+lines = base.mark_line(strokeWidth=3)
+points = base.mark_circle(size=60).encode(
+    opacity=alt.value(1),
+    tooltip=[
+        alt.Tooltip('城区', title='区域'),
+        alt.Tooltip('时间', title='年份'),
+        alt.Tooltip('价格', title=f'{metric_type}', format=','),
+        alt.Tooltip('类型', title='数据类型')
+    ]
+)
+
+chart = (lines + points).interactive()
+st.altair_chart(chart, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 增长率指标展示
+# -----------------------------------------------------------------------------
+st.subheader(f'📈 {from_year}-{to_year}年 {metric_type}涨幅榜', divider='gray')
+
+# 获取首尾年份数据用于计算
+# 注意：这里需要重新从 filtered_df 取，因为它已经包含了类型过滤
+first_year_df = filtered_df[filtered_df['时间'] == from_year]
+last_year_df = filtered_df[filtered_df['时间'] == to_year]
+
+cols = st.columns(4)
+
+for i, district in enumerate(selected_districts):
+    col = cols[i % 4]
+    
+    with col:
+        # 获取起点和终点价格
+        start_vals = first_year_df[first_year_df['城区'] == district]['价格'].values
+        end_vals = last_year_df[last_year_df['城区'] == district]['价格'].values
+        
+        if len(start_vals) > 0 and len(end_vals) > 0:
+            start_price = start_vals[0]
+            end_price = end_vals[0]
+            
+            if start_price == 0 or math.isnan(start_price):
+                growth_str = "N/A"
+                delta_color = "off"
+            else:
+                pct = (end_price - start_price) / start_price
+                growth_str = f"{pct:+.2%}"
+                delta_color = "normal"
+            
+            st.metric(
+                label=f"{district}",
+                value=f"{end_price:,.0f} {unit.replace('元/', '')}", # 简化单位显示
+                delta=growth_str,
+                delta_color=delta_color
+            )
+        else:
+            # 如果某一年缺失数据
+            st.metric(label=district, value="暂无数据", delta=None)
