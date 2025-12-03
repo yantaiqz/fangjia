@@ -91,7 +91,8 @@ with st.sidebar:
 
     # 3. 时间滑块
     min_year = gdp_df['时间'].min()
-    max_year = gdp_df['时间'].max()
+    # max_year = gdp_df['时间'].max()
+    max_year = 2025
     from_year, to_year = st.slider('📅 时间区间', min_year, max_year, [min_year, max_year])
 
 # -----------------------------------------------------------------------------
