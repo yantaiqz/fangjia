@@ -5,26 +5,66 @@ from pathlib import Path
 import altair as alt
 import io
 
-# -----------------------------------------------------------------------------
-# 1. 模拟数据生成 (包含房价和房租)
-# -----------------------------------------------------------------------------
-def get_dummy_csv_data():
-    # 模拟数据增加了【类型】列
-    # 房租数据通常是房价的 1/500 到 1/800 左右 (租售比)
-    csv_content = """城市,城区,类型,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025
-北京,全城均价,房价,38000,52000,62000,60000,58000,60000,65000,63000,61000,58000,56000
-北京,全城均价,房租,80,95,105,110,112,110,115,118,120,115,112
-北京,朝阳区,房价,42000,58000,68000,66000,65000,68000,72000,70000,68000,65000,63000
-北京,朝阳区,房租,90,110,125,130,135,130,140,145,150,140,135
-北京,海淀区,房价,45000,62000,75000,73000,72000,78000,85000,82000,80000,76000,74000
-北京,海淀区,房租,95,120,140,145,150,155,165,170,175,165,160
-上海,全城均价,房价,35000,48000,55000,53000,54000,58000,68000,66000,64000,63000,61000
-上海,全城均价,房租,75,90,100,105,108,110,125,122,120,118,115
-烟台,芝罘区,房价,7000,7800,9000,10500,11000,11500,11800,11000,10500,10000,9600
-烟台,芝罘区,房租,20,22,25,28,30,32,32,30,28,27,26
-烟台,莱山区,房价,7500,8500,10000,11500,12500,13500,14000,13000,12500,12000,11500
-烟台,莱山区,房租,22,25,28,32,35,38,40,38,36,35,34"""
-    return io.StringIO(csv_content)
+import json
+import datetime
+import os
+# -------------------------- 2. 安全的计数器逻辑 --------------------------
+COUNTER_FILE = "visit_stats.json"
+
+def update_daily_visits():
+    """安全更新访问量，如果出错则返回 0，绝不让程序崩溃"""
+    try:
+        today_str = datetime.date.today().isoformat()
+        
+        # 1. 检查 Session，防止刷新页面重复计数
+        if "has_counted" in st.session_state:
+            if os.path.exists(COUNTER_FILE):
+                try:
+                    with open(COUNTER_FILE, "r") as f:
+                        return json.load(f).get("count", 0)
+                except:
+                    return 0
+            return 0
+
+        # 2. 读取或初始化数据
+        data = {"date": today_str, "count": 0}
+        
+        if os.path.exists(COUNTER_FILE):
+            try:
+                with open(COUNTER_FILE, "r") as f:
+                    file_data = json.load(f)
+                    if file_data.get("date") == today_str:
+                        data = file_data
+            except:
+                pass # 文件损坏则从0开始
+        
+        # 3. 计数 +1
+        data["count"] += 1
+        
+        # 4. 写入文件 (最容易报错的地方，加了try保护)
+        with open(COUNTER_FILE, "w") as f:
+            json.dump(data, f)
+        
+        st.session_state["has_counted"] = True
+        return data["count"]
+        
+    except Exception as e:
+        # 如果发生任何错误（如权限不足），静默失败，不影响页面显示
+        return 0
+
+
+# -------- 每日访问统计 (即使报错也不崩溃) --------
+daily_visits = update_daily_visits()
+# visit_text = f"Daily Visits: {daily_visits}" if selected_lang == "English" else f"今日访问: {daily_visits}"
+visit_text = f"今日访问: {daily_visits}"
+
+st.markdown(f"""
+<div style="text-align: center; color: #64748b; font-size: 0.7rem; margin-top: 10px; padding-bottom: 20px;">
+    {visit_text}
+</div>
+""", unsafe_allow_html=True)
+
+
 
 # -----------------------------------------------------------------------------
 # 页面配置
