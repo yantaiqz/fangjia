@@ -182,7 +182,7 @@ lang_texts = {
         "coffee_amount": "Enter Coffee Count"
     }
 }
-current_text = lang_texts[st.session_state.language]
+
 
 # ==========================================
 # 3. 状态初始化
@@ -194,7 +194,9 @@ if 'coffee_num' not in st.session_state:
     st.session_state.coffee_num = 1
 if 'visitor_id' not in st.session_state:
     st.session_state["visitor_id"] = str(uuid.uuid4())
-    
+
+current_text = lang_texts[st.session_state.language]
+
 # -----------------------------------------------------------------------------
 # 2. 数据加载
 # -----------------------------------------------------------------------------
