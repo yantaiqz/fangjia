@@ -4,19 +4,24 @@ import math
 from pathlib import Path
 import altair as alt
 import io
-
 import json
 import datetime
 import os
-
 import time 
 
+# -----------------------------------------------------------------------------
+# 页面配置 (必须在所有命令之前)
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title='房产大数据看板',
+    page_icon='🏠',
+    layout="wide" # 使用宽屏模式以容纳更多信息
+)
 
 # -------------------------- 右上角功能区 --------------------------
 
 st.markdown("""
 <style>
-
     /* 隐藏右上角的 Streamlit 主菜单（包含部署、源码、设置等） */
     #MainMenu {visibility: hidden;}
     /* 隐藏页脚（包含 "Made with Streamlit" 文字） */
@@ -50,12 +55,17 @@ st.markdown("""
         transform: translateY(-1px);
     }
     .neal-btn-link { text-decoration: none; width: 100%; display: block; }
+    
+    /* 调整顶部容器的间距，让筛选区紧凑一些 */
+    .block-container {
+        padding-top: 2rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 
 # 创建右上角布局（占满整行，右侧显示按钮/链接）
-col_empty, col_more = st.columns([0.8, 0.2])
+col_empty, col_more = st.columns([0.85, 0.15])
 
 with col_more:
     # 修复：改用 HTML 链接按钮（替代 webbrowser 方式，兼容 Streamlit 云环境）
@@ -68,25 +78,12 @@ with col_more:
         unsafe_allow_html=True
     )
 
-
-# -----------------------------------------------------------------------------
-# 页面配置
-# -----------------------------------------------------------------------------
-st.set_page_config(
-    page_title='房产大数据看板',
-    page_icon='🏠',
-    layout="wide" # 使用宽屏模式以容纳更多信息
-)
-
 # -----------------------------------------------------------------------------
 # 数据加载函数
 # -----------------------------------------------------------------------------
 @st.cache_data
 def get_gdp_data():
     # 读取模拟数据
-    # raw_df = pd.read_csv(get_dummy_csv_data(), delimiter=',')    
-    # raw_df = pd.read_csv('fangchan_full_data.csv')
-
     DATA_FILENAME = Path(__file__).parent/'data/fangchan_full_data.csv'
     raw_df = pd.read_csv(DATA_FILENAME, delimiter=',')
 
@@ -112,31 +109,55 @@ except Exception as e:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# 侧边栏 (Sidebar) - 用于控制全局筛选
+# 顶部筛选控制区 (原 Sidebar 内容移至此处)
 # -----------------------------------------------------------------------------
-with st.sidebar:
-    st.title('⚙️ 筛选面板')
-    
-    # 1. 城市选择
-    cities = gdp_df['城市'].unique()
-    selected_city = st.selectbox('📍 选择城市', cities, index=0)
 
-    # 2. 城区选择
+# 使用容器包裹，稍微增加背景色或分隔线可以区分筛选区和展示区（可选）
+with st.container():
+    st.subheader('⚙️ 筛选与配置')
+    
+    # 第一行控件：城市、数据类型、时间范围
+    c1, c2, c3 = st.columns([1, 1, 2])
+    
+    with c1:
+        # 1. 城市选择
+        cities = gdp_df['城市'].unique()
+        selected_city = st.selectbox('📍 选择城市', cities, index=0)
+
+    with c2:
+        # 2. 数据视角 (原正文内容移至此处)
+        metric_type = st.radio(
+            "📊 数据视角",
+            ["房价", "房租"],
+            horizontal=True,
+            help="切换查看买卖价格或租赁价格趋势"
+        )
+    
+    with c3:
+        # 3. 时间滑块
+        min_year = gdp_df['时间'].min()
+        # max_year = gdp_df['时间'].max()
+        max_year = 2025
+        from_year, to_year = st.slider('📅 时间区间', min_year, max_year, [min_year, max_year])
+
+    # 第二行控件：城区选择
+    # 逻辑：全选按钮 与 多选框
     districts_in_city = gdp_df[gdp_df['城市'] == selected_city]['城区'].unique()
-    all_districts = st.checkbox("全选城区", value=True)
     
-    if all_districts:
-        selected_districts = st.multiselect(f'选择 {selected_city} 的区域', districts_in_city, districts_in_city)
-    else:
-        selected_districts = st.multiselect(f'选择 {selected_city} 的区域', districts_in_city)
+    c4, c5 = st.columns([0.15, 0.85])
+    with c4:
+        # 为了对齐，加一点垂直留白或直接放checkbox
+        st.write("") 
+        st.write("")
+        all_districts = st.checkbox("全选所有城区", value=True)
+    
+    with c5:
+        if all_districts:
+            selected_districts = st.multiselect(f'已选择 {selected_city} 的区域', districts_in_city, districts_in_city)
+        else:
+            selected_districts = st.multiselect(f'请选择 {selected_city} 的区域', districts_in_city)
 
-    st.divider()
-
-    # 3. 时间滑块
-    min_year = gdp_df['时间'].min()
-    # max_year = gdp_df['时间'].max()
-    max_year = 2025
-    from_year, to_year = st.slider('📅 时间区间', min_year, max_year, [min_year, max_year])
+st.divider() # 分割线
 
 # -----------------------------------------------------------------------------
 # 主页面内容
@@ -144,15 +165,6 @@ with st.sidebar:
 
 st.title(f'🏠 {selected_city} 房产价格趋势透视')
 st.caption("数据来源：模拟演示数据 | 包含二手房挂牌均价与租金均价")
-
-# === 核心交互：切换房价/房租 ===
-# 使用 segmented control (如果 Streamlit 版本较新) 或 radio
-metric_type = st.radio(
-    "📊 请选择数据视角：",
-    ["房价", "房租"],
-    horizontal=True,
-    help="切换查看买卖价格或租赁价格趋势"
-)
 
 # 动态设置单位
 if metric_type == '房价':
@@ -174,7 +186,7 @@ filtered_df = gdp_df[
 ]
 
 if filtered_df.empty:
-    st.info("⚠️ 当前筛选条件下暂无数据，请调整侧边栏选项。")
+    st.info("⚠️ 当前筛选条件下暂无数据，请调整上方筛选选项。")
     st.stop()
 
 # -----------------------------------------------------------------------------
