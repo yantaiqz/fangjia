@@ -16,7 +16,6 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* === 1. 页面布局：两侧留白与居中 === */
-    /* 限制主容器宽度，在大屏上居中显示，避免过宽导致视线分散 */
     .block-container {
         max-width: 1200px;
         padding-top: 1.5rem;
@@ -26,7 +25,6 @@ st.markdown("""
         margin: auto;
     }
     
-    /* 减少组件垂直间距 */
     div[data-testid="column"] { gap: 1rem; }
     
     /* === 2. 隐藏 Streamlit 原生元素 === */
@@ -34,7 +32,7 @@ st.markdown("""
     footer {visibility: hidden;}
     header[data-testid="stHeader"] {display: none;}
     
-    /* === 3. “更多应用”按钮 视觉升级 === */
+    /* === 3. 按钮样式 === */
     .neal-btn {
         display: inline-flex;
         align-items: center;
@@ -61,13 +59,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transform: translateY(-1px);
     }
-
-    .neal-btn:active {
-        transform: translateY(0px);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
     
-    /* === 4. 指标数字优化 === */
     div[data-testid="stMetricValue"] {
         font-size: 1.25rem !important;
         font-family: 'Inter', sans-serif;
@@ -98,10 +90,8 @@ except Exception as e:
 # 3. 顶部导航区
 # -----------------------------------------------------------------------------
 c_head_1, c_head_2 = st.columns([0.85, 0.15])
-
 with c_head_1:
     st.subheader("🏠 房产大数据看板", divider="gray")
-
 with c_head_2:
     st.markdown(
         '''
@@ -119,26 +109,21 @@ with c_head_2:
 # -----------------------------------------------------------------------------
 with st.container():
     c1, c2, c3, c4, c5 = st.columns([1.2, 1.2, 2.5, 1, 4])
-
     with c1:
         cities = gdp_df['城市'].unique()
         selected_city = st.selectbox('城市', cities, label_visibility="collapsed", index=0)
-
     with c2:
         metric_type = st.radio('类型', ["房价", "房租"], horizontal=True, label_visibility="collapsed")
-
     with c3:
         min_year = gdp_df['时间'].min()
         max_year = 2025
         from_year, to_year = st.slider('年份', min_year, max_year, [min_year, max_year], label_visibility="collapsed")
-
+    
     districts_in_city = gdp_df[gdp_df['城市'] == selected_city]['城区'].unique()
-
     with c4:
         st.write("") 
         st.write("") 
         all_districts = st.checkbox("全选区域", value=True)
-
     with c5:
         if all_districts:
             selected_districts = st.multiselect('区域', districts_in_city, districts_in_city, label_visibility="collapsed")
@@ -168,12 +153,12 @@ base = alt.Chart(filtered_df).encode(
     y=alt.Y(
         '价格', 
         scale=alt.Scale(zero=False), 
-        # 核心修复：设置 labelLimit=0 禁用截断，titlePadding 增加间距
         axis=alt.Axis(
             title=unit, 
             gridColor='#f0f0f0', 
-            labelLimit=0,      # <--- 关键：0 表示不限制标签长度，防止被切成 "..."
-            titlePadding=15    # <--- 关键：给标题和数字之间留出更多呼吸空间
+            labelLimit=0,      # 不截断文字
+            titlePadding=20,   # 增加标题与数字的间距
+            minExtent=60       # <--- 核心修复：强制给 Y 轴预留 60px 宽度，防止数字被切
         )
     ),
     color=alt.Color('城区', legend=alt.Legend(title=None, orient='top', columns=6, symbolLimit=0))
@@ -184,8 +169,9 @@ points = base.mark_circle(size=60).encode(
     tooltip=['城区', '时间', alt.Tooltip('价格', format=',')]
 )
 
-# 使用 configure_view 也可以帮助去除多余边框，让空间利用率更高
+# 使用 configure_layout 增加左侧内边距，作为双重保险
 chart = (lines + points).properties(height=400).interactive()
+# chart = chart.configure_layout(padding={"left": 10}) # 备选方案，如果 minExtent 不够用可开启此行
 
 st.altair_chart(chart, use_container_width=True)
 
