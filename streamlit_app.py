@@ -16,14 +16,14 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* === 1. 页面布局：两侧留白与居中 === */
-    /* 强制限制主容器宽度，在大屏上居中显示，避免过宽 */
+    /* 限制主容器宽度，在大屏上居中显示，避免过宽导致视线分散 */
     .block-container {
         max-width: 1200px;
         padding-top: 1.5rem;
         padding-bottom: 2rem;
         padding-left: 2rem;
         padding-right: 2rem;
-        margin: auto; /* 居中 */
+        margin: auto;
     }
     
     /* 减少组件垂直间距 */
@@ -42,25 +42,24 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         font-weight: 600;
         font-size: 14px;
-        color: #1f2937; /* 深灰字体 */
-        background: linear-gradient(to bottom, #ffffff, #f3f4f6); /* 微渐变 */
+        color: #1f2937;
+        background: linear-gradient(to bottom, #ffffff, #f3f4f6);
         border: 1px solid #d1d5db;
         padding: 8px 16px;
-        border-radius: 20px; /* 胶囊圆角 */
+        border-radius: 20px;
         cursor: pointer;
         text-decoration: none !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* 轻微投影 */
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         transition: all 0.2s ease;
         white-space: nowrap;
     }
     
-    /* 悬停效果 */
     .neal-btn:hover {
         background: #fff;
-        border-color: #6366f1; /* 悬停边框变色 */
+        border-color: #6366f1;
         color: #4f46e5;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 投影加深 */
-        transform: translateY(-1px); /* 轻微上浮 */
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
     }
 
     .neal-btn:active {
@@ -70,7 +69,7 @@ st.markdown("""
     
     /* === 4. 指标数字优化 === */
     div[data-testid="stMetricValue"] {
-        font-size: 1.25rem !important; /* 调整数字大小，更协调 */
+        font-size: 1.25rem !important;
         font-family: 'Inter', sans-serif;
     }
 </style>
@@ -96,16 +95,14 @@ except Exception as e:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# 3. 顶部导航区 (Title + Button)
+# 3. 顶部导航区
 # -----------------------------------------------------------------------------
-# 使用 columns 将标题和按钮对齐
 c_head_1, c_head_2 = st.columns([0.85, 0.15])
 
 with c_head_1:
     st.subheader("🏠 房产大数据看板", divider="gray")
 
 with c_head_2:
-    # 使用 Flexbox 确保按钮在列中居右对齐，且垂直居中
     st.markdown(
         '''
         <div style="display: flex; justify-content: flex-end; align-items: center; height: 100%; padding-top: 5px;">
@@ -118,11 +115,9 @@ with c_head_2:
     )
 
 # -----------------------------------------------------------------------------
-# 4. 筛选控制栏 (Glassy Bar 风格)
+# 4. 筛选控制栏
 # -----------------------------------------------------------------------------
-# 使用 container 包裹，增加一点顶部间距，让它看起来像一个控制台
 with st.container():
-    # 布局：城市 | 类型 | 年份 | 区域开关 | 区域多选
     c1, c2, c3, c4, c5 = st.columns([1.2, 1.2, 2.5, 1, 4])
 
     with c1:
@@ -137,7 +132,6 @@ with st.container():
         max_year = 2025
         from_year, to_year = st.slider('年份', min_year, max_year, [min_year, max_year], label_visibility="collapsed")
 
-    # 动态获取区域
     districts_in_city = gdp_df[gdp_df['城市'] == selected_city]['城区'].unique()
 
     with c4:
@@ -152,7 +146,7 @@ with st.container():
             selected_districts = st.multiselect('区域', districts_in_city, label_visibility="collapsed", placeholder="选择区域...")
 
 # -----------------------------------------------------------------------------
-# 5. 主图表区域
+# 5. 主图表区域 (修复坐标轴显示)
 # -----------------------------------------------------------------------------
 unit = '元/㎡' if metric_type == '房价' else '元/㎡/月'
 
@@ -168,10 +162,20 @@ if filtered_df.empty:
     st.info("👋 请调整上方筛选条件以查看数据。")
     st.stop()
 
-# 图表优化：更干净的坐标轴
+# === 图表配置调整 ===
 base = alt.Chart(filtered_df).encode(
-    x=alt.X('时间', axis=alt.Axis(format='d', title=None, grid=False, domain=False, tickSize=0)), # 极简X轴
-    y=alt.Y('价格', scale=alt.Scale(zero=False), axis=alt.Axis(title=unit, gridColor='#f0f0f0')),
+    x=alt.X('时间', axis=alt.Axis(format='d', title=None, grid=False, domain=False, tickSize=0)),
+    y=alt.Y(
+        '价格', 
+        scale=alt.Scale(zero=False), 
+        # 核心修复：设置 labelLimit=0 禁用截断，titlePadding 增加间距
+        axis=alt.Axis(
+            title=unit, 
+            gridColor='#f0f0f0', 
+            labelLimit=0,      # <--- 关键：0 表示不限制标签长度，防止被切成 "..."
+            titlePadding=15    # <--- 关键：给标题和数字之间留出更多呼吸空间
+        )
+    ),
     color=alt.Color('城区', legend=alt.Legend(title=None, orient='top', columns=6, symbolLimit=0))
 )
 
@@ -180,13 +184,15 @@ points = base.mark_circle(size=60).encode(
     tooltip=['城区', '时间', alt.Tooltip('价格', format=',')]
 )
 
+# 使用 configure_view 也可以帮助去除多余边框，让空间利用率更高
 chart = (lines + points).properties(height=400).interactive()
+
 st.altair_chart(chart, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. 数据概览 (Footer Metrics)
+# 6. 数据概览
 # -----------------------------------------------------------------------------
-st.markdown("---") # 细分割线
+st.markdown("---")
 st.markdown(f"**📊 {from_year} vs {to_year} 涨跌一览**")
 
 first_year_df = filtered_df[filtered_df['时间'] == from_year]
