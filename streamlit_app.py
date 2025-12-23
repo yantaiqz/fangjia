@@ -234,7 +234,7 @@ with c_head_2:
     st.markdown(
         '''
         <div style="display: flex; justify-content: flex-end; align-items: center; height: 100%; padding-top: 5px;">
-            <a href="https://haowan.streamlit.app/" target="_blank" class="neal-btn">
+            <a href="https://laodeng.streamlit.app/" target="_blank" class="neal-btn">
                ✨ 更多好玩应用
             </a>
         </div>
